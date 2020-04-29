@@ -1,4 +1,5 @@
 -e .
 
+twine
 pylint
 autopep8
