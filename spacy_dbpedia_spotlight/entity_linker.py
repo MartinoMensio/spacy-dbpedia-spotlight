@@ -8,10 +8,14 @@ supported_languages = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'ru']
 class DbpediaLinker(object):
     base_url = 'http://api.dbpedia-spotlight.org/'
 
-    def __init__(self, language_code, nlp=None):
+    def __init__(self, language_code, nlp=None, dbpedia_rest_api=None):
         if language_code not in supported_languages:
             raise ValueError(f'Linker not available in {language_code}. Choose one of {supported_languages}')
         self.language_code = language_code
+        if dbpedia_rest_api:
+            self.api_endpoint = dbpedia_rest_api # 'http://localhost:2222/rest'
+        else:
+            self.api_endpoint = f'{self.base_url}{self.language_code}'
 
         if not nlp:
             nlp = spacy.blank(language_code)
@@ -31,9 +35,10 @@ class DbpediaLinker(object):
         self.nlp = nlp
 
 
-    def _annotate_dbpedia_spotlight(self, doc, debug=False):
+    def _annotate_dbpedia_spotlight(self, doc, debug=True):
+        print('running remote', self.api_endpoint)
 
-        response = requests.get(f'{self.base_url}{self.language_code}/annotate', headers={'accept': 'application/json'}, params={'text': doc.text})
+        response = requests.get(f'{self.api_endpoint}/annotate', headers={'accept': 'application/json'}, params={'text': doc.text})
         response.raise_for_status()
         data = response.json()
         if debug:
@@ -48,5 +53,7 @@ class DbpediaLinker(object):
             span = doc.char_span(start_ch, end_ch, 'DBPEDIA_ENT', ent_kb_id)
             ents_data.append(span)
         
-        doc.ents = list(doc.ents) + ents_data
+        # TODO manage overlapping spans with spacy v3
+        # doc.ents = list(doc.ents) + ents_data
+        doc.ents = ents_data
         return doc

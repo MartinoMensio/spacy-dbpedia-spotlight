@@ -44,7 +44,7 @@ import spacy
 # any nlp you want
 nlp = spacy.blank('en')
 # create the pipe component, the dict argument is optional
-entity_annotator = nlp.create_pipe('annotate_dbpedia_spotlight', {'language_code':'it'})
+entity_annotator = nlp.create_pipe('annotate_dbpedia_spotlight', {'language_code':'en'})
 # add on your fancy pipeline with options like `first`
 nlp.add_pipe(entity_annotator, first=True)
 ```
@@ -53,3 +53,16 @@ Output example:
 ```text
 Entities [('USA', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/United_States'), ('Boris Johnson', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/Boris_Johnson'), ('coronavirus', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/Coronavirus')]
 ```
+
+
+## Known issues
+
+### Overlap of entities
+
+Spacy v2 does not allow entities to overlap, so the current implementation removes the entities computed by other models and places the ones from DBpedia. Future versions using spaCy v3 won't have this problem.
+
+### DBpedia spotlight is denying my requests
+
+After a few requests to DBpedia spotlight, the public web service will reply with some HTTP codes.
+
+The solution is to use a local DBpedia instance (TODO documentation will come soon).

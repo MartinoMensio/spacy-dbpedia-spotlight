@@ -26,6 +26,7 @@ class EntityLinker(object):
 
     def __call__(self, doc):
         new_ents = self.nlp(doc).ents
-        doc.ents = list(doc.ents) + new_ents
+        # doc.ents = list(doc.ents) + new_ents
+        doc.ents = new_ents
 
         return doc
