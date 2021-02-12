@@ -19,6 +19,7 @@ The spans produced have the following properties:
 This package works with SpaCy v3
 
 With pip: `pip install spacy-dbpedia-spotlight`
+
 From GitHub (after clone): `pip install .`
 
 ### Instantiating the pipeline component
