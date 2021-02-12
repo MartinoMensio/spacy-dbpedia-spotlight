@@ -94,9 +94,59 @@ Entities [('USA', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/United_States'), (
 ```
 
 
-## Known issues
-### DBpedia spotlight is denying my requests
+## Common issues
+### DBpedia refuses to answer huge quantities of requests
 
 After a few requests to DBpedia spotlight, the public web service will reply with some bad HTTP codes.
 
-The solution is to use a local DBpedia instance (TODO documentation will come soon).
+The solution is to use a local DBpedia instance. The instructions below are with Docker or without it.
+
+#### Deploy with Docker
+
+```bash
+# pull the official image
+docker pull dbpedia/dbpedia-spotlight
+# create a volume for persistently saving the language models
+docker volume create spotlight-models
+# start the container (here assuming we want the en model)
+docker run -ti \
+ --restart unless-stopped \
+ --name dbpedia-spotlight.en \
+ --mount source=spotlight-models,target=/opt/spotlight \
+ -p 2222:80 \
+ dbpedia/dbpedia-spotlight \
+ spotlight.sh en
+```
+
+#### Withouth Docker
+
+```bash
+# download main jar
+wget https://sourceforge.net/projects/dbpedia-spotlight/files/spotlight/dbpedia-spotlight-1.0.0.jar
+# download latest model (assuming en model)
+wget -O en.tar.gz http://downloads.dbpedia.org/repo/dbpedia/spotlight/spotlight-model/2020.11.18/spotlight-model_lang%3den.tar.gz
+# extract model
+tar xzf en.tar.gz
+# run server
+java -jar dbpedia-spotlight-1.0.0.jar en http://localhost:2222/rest
+```
+
+#### Use the local server
+
+First of all, make sure that the local server is working.
+
+```bash
+curl http://localhost:2222/rest/annotate \
+ --data-urlencode "text=President Obama called Wednesday on Congress to extend a tax break for students included in last year's economic stimulus package, arguing that the policy provides more generous assistance." \
+ --data "confidence=0.35" \
+ -H "Accept: text/turtle"
+```
+
+Then in Python you can configure the endpoint in the following way
+
+```python
+import spacy
+nlp = spacy.load('en_core_web_lg')
+# Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
+nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
+```
