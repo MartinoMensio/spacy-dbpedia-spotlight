@@ -2,23 +2,26 @@ import spacy
 import requests
 from spacy.language import Language
 
-from spacy.tokens import Span
+from spacy.tokens import Span, Doc
 
 # span extension attribute for raw json
 Span.set_extension("dbpedia_raw_result", default=None)
+Doc.set_extension("dbpedia_raw_result", default=None)
 
 @Language.factory('dbpedia_spotlight', default_config={
     'language_code': None,
     'dbpedia_rest_endpoint': None,
+    'span_group': 'dbpedia_spotlight',
     'overwrite_ents': True,
     'debug': False
 })
-def dbpedia_spotlight_factory(nlp, name, language_code, dbpedia_rest_endpoint, overwrite_ents, debug):
+def dbpedia_spotlight_factory(nlp, name, language_code, dbpedia_rest_endpoint, span_group, overwrite_ents, debug):
     '''Factory of the pipeline stage `dbpedia_spotlight`.
     Parameters:
     - `language_code`: which language to use for entity linking. Possible values are listed in EntityLinker.supported_languages. If the parameter is left as None, the language code is matched with the nlp object currently used.
     - `dbpedia_rest_endpoint`: this needs to be configured if you want to use a different REST endpoint from the default `EntityLinker.base_url`. Example: `http://localhost:2222/rest` for a localhost server
-    - `overwrite_ents`: if set to False, it won't overwrite `doc.ents` in cases of overlapping spans with current entities, and only produce the results in `doc.spans['dbpedia_ents']. If it is True, it will move the entities from doc.ents into `doc.spans['ents_original']`
+    - `span_group`: which span group to write the entities to. By default the value is `dbpedia_spotlight` which writes to `doc.spans['dbpedia_spotlight']`
+    - `overwrite_ents`: if set to False, it won't overwrite `doc.ents` in cases of overlapping spans with current entities, and only produce the results in `doc.spans[span_group]. If it is True, it will move the entities from doc.ents into `doc.spans['ents_original']`
     - `debug`: prints several debug information to stdout
     '''
     if debug:
@@ -30,21 +33,22 @@ def dbpedia_spotlight_factory(nlp, name, language_code, dbpedia_rest_endpoint, o
     # language_code can override the language code from the nlp object
     if not language_code:
         language_code = nlp_lang_code
-    return EntityLinker(language_code, dbpedia_rest_endpoint, overwrite_ents, debug)
+    return EntityLinker(language_code, dbpedia_rest_endpoint, span_group, overwrite_ents, debug)
 
 
 class EntityLinker(object):
     '''This class manages the querying of DBpedia and attaches the found entities to the document'''
     # default location of the service
-    base_url = 'http://api.dbpedia-spotlight.org'
+    base_url = 'https://api.dbpedia-spotlight.org'
     # list of supported languages
     supported_languages = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'ru']
 
-    def __init__(self, language_code='en', dbpedia_rest_endpoint=None, overwrite_ents=True, debug=False):
+    def __init__(self, language_code='en', dbpedia_rest_endpoint=None, span_group='dbpedia_spotlight', overwrite_ents=True, debug=False):
         # constructor of the pipeline stage
         if language_code not in self.supported_languages:
             raise ValueError(f'Linker not available in {language_code}. Choose one of {self.supported_languages}')
         self.language_code = language_code
+        self.span_group = span_group
         self.overwrite_ents = overwrite_ents
         self.debug = debug
         if dbpedia_rest_endpoint:
@@ -60,7 +64,7 @@ class EntityLinker(object):
 
     def __call__(self, doc):
         # called in the pipeline
-        annotate_dbpedia_spotlight(doc, self.api_endpoint, self.overwrite_ents, self.debug)
+        annotate_dbpedia_spotlight(doc, self.api_endpoint, self.span_group, self.overwrite_ents, self.debug)
         return doc
 
 def create(language_code, nlp=None):
@@ -74,15 +78,17 @@ def create(language_code, nlp=None):
     return nlp
 
 
-def annotate_dbpedia_spotlight(doc, api_endpoint, overwrite_ents, debug=True):
+def annotate_dbpedia_spotlight(doc, api_endpoint, span_group, overwrite_ents, debug=True):
     if debug:
         print('running remote', api_endpoint)
 
-    response = requests.get(f'{api_endpoint}/annotate', headers={'accept': 'application/json'}, params={'text': doc.text})
+    response = requests.post(f'{api_endpoint}/annotate', headers={'accept': 'application/json'}, data={'text': doc.text})
     response.raise_for_status()
     data = response.json()
     if debug:
         print(data)
+
+    doc._.dbpedia_raw_result = data
 
     ents_data = []
     for ent in data.get('Resources', []):
@@ -91,6 +97,17 @@ def annotate_dbpedia_spotlight(doc, api_endpoint, overwrite_ents, debug=True):
         ent_kb_id = ent['@URI']
         # TODO look at '@types' and choose most relevant?
         span = doc.char_span(start_ch, end_ch, 'DBPEDIA_ENT', ent_kb_id)
+        if not span:
+            # something strange like "something@bbc.co.uk" where the match is only part of a SpaCy token
+            # 1. find the token to split
+            print(start_ch, end_ch, ent)
+            # tokens also wider than start_ch, end_ch
+            tokens_to_split = [t for t in doc if t.idx >= start_ch or t.idx+len(t) <=end_ch]
+            span = doc.char_span(min(t.idx for t in tokens_to_split), max(t.idx + len(t) for t in tokens_to_split))
+            # with doc.retokenize() as retokenizer:
+            #     for t in tokens_to_split:
+            #         retokenizer.split(t, ['a', 't'], [t.head, t.head])
+            # raise ValueError()
         span._.dbpedia_raw_result = ent
         ents_data.append(span)
     
@@ -113,5 +130,5 @@ def annotate_dbpedia_spotlight(doc, api_endpoint, overwrite_ents, debug=True):
             if debug:
                 print('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_ents"]')
     # doc.spans['dbpedia_raw'] = data
-    doc.spans['dbpedia_ents'] = ents_data
+    doc.spans[span_group] = ents_data
     return doc

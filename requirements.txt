@@ -2,4 +2,5 @@
 
 twine
 pylint
+pytest
 autopep8

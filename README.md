@@ -66,6 +66,7 @@ This component can be used with the following parameters:
 
 - `language_code`: to explicitly use a specific dbpedia language, because on default the value from `nlp.meta['lang']` is used
 - `dbpedia_rest_endpoint`: to use something different from `http://api.dbpedia-spotlight.org/{LANGUAGE_CODE}`, for example when using a local instance of DBpedia Spotlight. Don't set it if the default location is ok
+- `span_group`: which span group to write the entities to. By default the value is `dbpedia_spotlight` which writes to `doc.spans['dbpedia_spotlight']`
 - `overwrite_ents`: to control how the overwriting of `doc.ents` is performed, because other components may have already written there (e.g., the `en_core_web_lg` model has a `ner` pipeline component which already sets some entities). The component tries to add the new ones from DBpedia, which can be successful if the entities do not overlap in terms of tokens. The cases are the following:
   - no tokens overlap between the pre-exisiting `doc.ents` and the new entities: in this case `doc.ents` will contain both the previous entities and the new entities
   - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
@@ -85,8 +86,8 @@ nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'es'})
 After having instantiated the component, you can use the spaCy API as usual
 
 ```python
-doc = nlp('The president of USA is calling Boris Johnson to decide what to do about coronavirus')
-print("Entities", [(ent.text, ent.label_, ent.kb_id_) for ent in doc.ents])
+doc = nlp('Google LLC is an American multinational technology company.')
+print("Entities", [(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
 ```
 
 Output example:
