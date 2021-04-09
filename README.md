@@ -48,7 +48,8 @@ print(nlp.pipe_names)
 # ['tok2vec', 'tagger', 'parser', 'ner', 'attribute_ruler', 'lemmatizer', 'dbpedia_spotlight']
 ```
 
-The pipeline stage can be added at any point of an existing pipeline (using the arguments `before`, `after`, `first` or `last`)
+The pipeline stage can be added at any point of an existing pipeline (using the arguments `before`, `after`, `first` or `last`).
+A specific positioning can be useful if you are using the output of one stage as input to another stage.
 
 ```python
 import spacy
@@ -60,40 +61,162 @@ nlp.add_pipe('dbpedia_spotlight', first=True)
 print(nlp.pipe_names)
 # ['dbpedia_spotlight', 'tok2vec', 'tagger', 'parser', 'ner', 'attribute_ruler', 'lemmatizer']
 ```
-### Configuration parameters
-
-This component can be used with the following parameters:
-
-- `language_code`: to explicitly use a specific dbpedia language, because on default the value from `nlp.meta['lang']` is used
-- `dbpedia_rest_endpoint`: to use something different from `http://api.dbpedia-spotlight.org/{LANGUAGE_CODE}`, for example when using a local instance of DBpedia Spotlight. Don't set it if the default location is ok
-- `span_group`: which span group to write the entities to. By default the value is `dbpedia_spotlight` which writes to `doc.spans['dbpedia_spotlight']`
-- `overwrite_ents`: to control how the overwriting of `doc.ents` is performed, because other components may have already written there (e.g., the `en_core_web_lg` model has a `ner` pipeline component which already sets some entities). The component tries to add the new ones from DBpedia, which can be successful if the entities do not overlap in terms of tokens. The cases are the following:
-  - no tokens overlap between the pre-exisiting `doc.ents` and the new entities: in this case `doc.ents` will contain both the previous entities and the new entities
-  - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
-  - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entiities can be found in `doc.spans['dbpedia_ents']`
-
-The configuration dict needs to be passed when instantiating the pipeline component
-
-```python
-import spacy
-nlp = spacy.load('en_core_web_lg')
-# instantiate Spanish EntityLinker on the English model
-nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'es'})
-```
 
 ### Using the model
 
-After having instantiated the component, you can use the spaCy API as usual
+After having instantiated the component, you can use the spaCy API as usual, and you will get the DBPedia spotlight entities
 
 ```python
+import spacy
+nlp = spacy.blank('en')
+nlp.add_pipe('dbpedia_spotlight')
+
 doc = nlp('Google LLC is an American multinational technology company.')
-print("Entities", [(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
 ```
 
 Output example:
 ```text
-Entities [('USA', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/United_States'), ('Boris Johnson', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/Boris_Johnson'), ('coronavirus', 'DBPEDIA_ENT', 'http://dbpedia.org/resource/Coronavirus')]
+[('Google LLC', 'http://dbpedia.org/resource/Google', '0.9999999999999005'), ('American', 'http://dbpedia.org/resource/United_States', '0.9861264878996763')]
 ```
+
+### Configuration parameters
+
+This component can be used with several parameters, which control the usage of the [DBpedia Spotlight API](https://www.dbpedia-spotlight.org/api) and the behaviour of this bridge library.
+
+All the configuration options described in detail below can be passed when instantiating the pipeline component with the `config` optional parameter.
+
+```python
+import spacy
+nlp = spacy.load('en_core_web_lg')
+# instantiate Italian EntityLinker on the English model
+nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'it'})
+```
+
+Or, in alternative, the values can be changed also after the pipeline stage creation. In this case, you can modify them directly in the pipeline stage object
+
+```python
+import spacy
+text = 'And the boy said "voglio andare negli Stati Uniti"'
+nlp = spacy.blank('en')
+# at the beginning we want to use default parameters (in this case the english API endpoint is used)
+nlp.add_pipe('dbpedia_spotlight')
+doc = nlp(text)
+# no entities found
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+
+
+# we want to change the `language_code`
+nlp.get_pipe('dbpedia_spotlight').language_code = 'it'
+# you need to re-create the document, because the entities are computed at document creation
+doc = nlp(text)
+# now we have one entity
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+
+```
+
+#### Using DBpedia in a specific language
+
+`language_code` controls the language of DBpedia Spotlight. The API is located at `https://api.dbpedia-spotlight.org/{language_code}`.
+By default the language to be used is derived from the `nlp.meta['lang']`. So if you are using a French pipeline, the default is `fr`.
+
+When you pass a value in the configuration, this will override the default value. If you are using a pipeline in a language not supported by DBPedia Spotlight, you will be required to set this configuration option.
+
+Example:
+
+```python
+import spacy
+# Danish not supported by spotlight
+nlp = spacy.blank('da')
+# so let's try to use the English one
+nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'en'})
+```
+
+#### Using another server
+
+If you don't want to use `api.dbpedia-spotlight.org` as server (for example because you have your local DBPedia Spotlight deployed), you can use the `dbpedia_rest_endpoint` parameter to point to a custom server.
+
+The default value is `http://api.dbpedia-spotlight.org/{language_code}`
+
+By setting this parameter, the `language_code` parameter will be ignored. You are providing the URL of the endpoint to be used (excluding the last part which is `/annotate` or `/spot` or `/candidates`).
+
+Example:
+```python
+import spacy
+nlp = spacy.blank('en')
+# Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
+nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
+```
+
+#### Changing between `annotate` / `spot` and `candidates`
+
+The parameter `process` conrols which specific type of processing is done. The possible values are:
+- `annotate`: A 4(four) step process - Spotting, Candidate Mapping, Disambiguation and Linking / Stats - for linking unstructured information sources
+- `spot`: A 1(one) step process - Spotting - for linking unstructured information sources
+- `candidates`: A 2(two) step process - Spotting, Candidate Mapping - for linking unstructured information sources
+
+The default value is `annotate`. This parameter works both for the default DBpedia endpoint and for custom ones.
+
+Example:
+```python
+import spacy
+nlp = spacy.blank('en')
+# run the candidates process
+nlp.add_pipe('dbpedia_spotlight', config={'process': 'candidates'})
+doc = nlp('Google LLC is an American multinational technology company.')
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['resource']['@contextualScore']) for ent in doc.ents])
+```
+
+#### Setting other parameters of the DBpedia REST API
+
+As can be seen in the [documentation of the DBpedia REST API](https://www.dbpedia-spotlight.org/api), there are 5 parameters (`confidence`, `support`, `types`, `sparql` and `policy`) which can be used to filter the results. You can use them through the `config` object:
+
+- `confidence`: confidence score for disambiguation / linking
+- `support`: how prominent is this entity in Lucene Model, i.e. number of inlinks in Wikipedia
+- `types`: types filter (Eg.DBpedia:Place)
+- `sparql`: SPARQL filtering
+- `policy`: (whitelist) select all entities that have the same type; (blacklist) - select all entities that have not the same type.
+
+Example:
+```python
+import spacy
+nlp = spacy.blank('en')
+text ='Google LLC is an American multinational technology company.'
+# get only the places
+nlp.add_pipe('dbpedia_spotlight', config={'types': 'DBpedia:Place'})
+doc = nlp(text)
+# this will output [('American', 'http://dbpedia.org/resource/United_States', '0.9861264878996763')]
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+
+# now only get the organisations
+nlp.get_pipe('dbpedia_spotlight').types = 'DBpedia:Organisation'
+# re-create the document
+doc = nlp(text)
+# this will output [('Google LLC', 'http://dbpedia.org/resource/Google', '0.9999999999999005')]
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+
+# now get all together
+nlp.get_pipe('dbpedia_spotlight').types = None
+# re-create the document
+doc = nlp(text)
+# this will output both Google and American
+print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
+```
+
+
+
+#### Controlling where entities are saved and if they are overwritten
+
+This pipeline stage can be loaded on existing language models which already have Entity recognition/linking and can also be loaded on models that don't have it. For this reason you may want to control the behaviour of writing to `doc.ents` and decide where the results of DBpedia Spotlight are saved.
+
+By default, this pipeline stage writes to a dedicated [span group](https://spacy.io/api/spangroup) which can be accessed with `doc.spans['dbpedia_spotlight']`, where the name of the span group is `dbpedia_spotlight`. You can change the name by using the `span_group` parameter.
+
+By default, the `doc.ents` are overwritten with the new results. The parameter `overwrite_ents` can be used to control how the overwriting of `doc.ents` is performed, because other components may have already written there (e.g., the `en_core_web_lg` model has a `ner` pipeline component which already sets some entities). The component tries to add the new ones from DBpedia, which can be successful if the entities do not overlap in terms of tokens. The cases are the following:
+  - no tokens overlap between the pre-exisiting `doc.ents` and the new entities: in this case `doc.ents` will contain both the previous entities and the new entities
+  - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
+  - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entities can be found in `doc.spans['dbpedia_ents']`
+
+
 
 
 ## Common issues
