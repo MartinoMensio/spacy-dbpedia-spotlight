@@ -291,3 +291,13 @@ nlp = spacy.load('en_core_web_lg')
 # Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
 nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
 ```
+
+## Utils
+
+```bash
+pip install -r requirements.txt
+# build the archive
+python setup.py sdist
+# upload to pypi
+twine upload dist/spacy_dbpedia_spotlight-0.2.1.tar.gz
+```
