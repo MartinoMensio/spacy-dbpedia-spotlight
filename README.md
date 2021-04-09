@@ -216,6 +216,22 @@ By default, the `doc.ents` are overwritten with the new results. The parameter `
   - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
   - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entities can be found in `doc.spans['dbpedia_ents']`
 
+### Using this when training your pipeline
+
+If you are [training a pipeline](https://spacy.io/usage/training#quickstart) and you want to include the component in it, you can add to your `config.cfg`:
+
+```text
+[nlp]
+lang = "en"
+pipeline = ["dbpedia"]
+
+[components]
+
+[components.dbpedia]
+factory = "dbpedia_spotlight"
+overwrite_ents = false
+debug = false
+```
 
 
 
