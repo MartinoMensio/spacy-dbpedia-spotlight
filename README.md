@@ -182,8 +182,8 @@ Example:
 import spacy
 nlp = spacy.blank('en')
 text ='Google LLC is an American multinational technology company.'
-# get only the places
-nlp.add_pipe('dbpedia_spotlight', config={'types': 'DBpedia:Place'})
+# get only the places (DBpedia:Place) with confidence above 0.75
+nlp.add_pipe('dbpedia_spotlight', config={'types': 'DBpedia:Place', 'confidence': 0.75})
 doc = nlp(text)
 # this will output [('American', 'http://dbpedia.org/resource/United_States', '0.9861264878996763')]
 print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for ent in doc.ents])
