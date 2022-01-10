@@ -168,7 +168,10 @@ class EntityLinker(object):
             if self.overwrite_ents:
                 # overwrite ok
                 doc.spans['ents_original'] = doc.ents
-                doc.ents = ents_data
+                try:
+                    doc.ents = ents_data
+                except ValueError:  # if there are overlapping spans in the dbpedia_spotlight entities
+                    doc.ents = spacy.util.filter_spans(ents_data)
                 if self.debug:
                     print('doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
             else:
