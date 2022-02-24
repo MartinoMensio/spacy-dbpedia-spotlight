@@ -1,8 +1,14 @@
+import sys
+
 import spacy
 import requests
+from loguru import logger
+from requests import HTTPError
 from spacy.language import Language
 
 from spacy.tokens import Span, Doc
+
+DBPEDIA_SPOTLIGHT_DEFAULT_ENDPOINT = 'https://api.dbpedia-spotlight.org'
 
 # span extension attribute for raw json
 Span.set_extension("dbpedia_raw_result", default=None)
@@ -36,15 +42,17 @@ def dbpedia_spotlight_factory(nlp, name, language_code, dbpedia_rest_endpoint, p
     - `overwrite_ents`: if set to False, it won't overwrite `doc.ents` in cases of overlapping spans with current entities, and only produce the results in `doc.spans[span_group]. If it is True, it will move the entities from doc.ents into `doc.spans['ents_original']`
     - `debug`: prints several debug information to stdout
     '''
+    logger.remove()
     if debug:
-        print('dbpedia_spotlight_factory:', nlp, 'language_code', language_code,
-            'dbpedia_rest_endpoint', dbpedia_rest_endpoint, 'process', process, 'confidence', confidence, 'support', support,
-            'types', types, 'sparql', sparql, 'policy', policy,
-            'overwrite_ents', overwrite_ents)
+        logger.add(sys.stdout, level="DEBUG")
+    else:
+        logger.add(sys.stdout, level="INFO")
+    logger.debug(f'dbpedia_spotlight_factory: {nlp}, language_code: {language_code}, dbpedia_rest_endpoint: {dbpedia_rest_endpoint}, '
+                 f'process: {process}, confidence: {confidence}, support: {support}, types: {types}, '
+                 f'sparql: {sparql}, policy: {policy}, overwrite_ents: {overwrite_ents}')
     # take the language code from the nlp object
     nlp_lang_code = nlp.meta['lang']
-    if debug:
-        print('nlp.meta["lang"]=', nlp_lang_code)
+    logger.debug(f'nlp.meta["lang"]={nlp_lang_code}')
     # language_code can override the language code from the nlp object
     if not language_code:
         language_code = nlp_lang_code
@@ -54,7 +62,7 @@ def dbpedia_spotlight_factory(nlp, name, language_code, dbpedia_rest_endpoint, p
 class EntityLinker(object):
     '''This class manages the querying of DBpedia and attaches the found entities to the document'''
     # default location of the service
-    base_url = 'https://api.dbpedia-spotlight.org'
+    base_url = DBPEDIA_SPOTLIGHT_DEFAULT_ENDPOINT
     # list of supported languages
     supported_languages = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'ru']
     # list of supported processes
@@ -85,13 +93,11 @@ class EntityLinker(object):
         if self.dbpedia_rest_endpoint:
             # override the default endpoint, e.g., 'http://localhost:2222/rest'
             endpoint = self.dbpedia_rest_endpoint
-            if self.debug:
-                print('api_endpoint has been manually set to', endpoint)
+            logger.debug(f'api_endpoint has been manually set to {endpoint}')
         else:
             # use the default endpoint for the language selected
             endpoint = f'{self.base_url}/{self.language_code}'
-            if self.debug:
-                print('api_endpoint has been built as', endpoint)
+            logger.debug(f'api_endpoint has been built as {endpoint}')
 
 
         params = {'text': doc.text}
@@ -106,13 +112,22 @@ class EntityLinker(object):
         if self.policy:
             params['policy'] = self.policy
 
-
         # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
-        response = requests.post(f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
+        try:
+            response = requests.post(f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
+        except HTTPError as e:
+            # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
+            logger.warn(f"Bad response from server {endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
+            logger.debug(str(e))
+            return doc
+        except (Exception) as e: # other erros
+            logger.error(f"Endpoint {endpoint} unreachable, please check your connection. Document not updated.")
+            logger.debug(str(e))
+            return doc
+
         response.raise_for_status()
         data = response.json()
-        if self.debug:
-            print(data)
+        logger.debug(f'Received data: {data}')
 
         doc._.dbpedia_raw_result = data
 
@@ -133,8 +148,7 @@ class EntityLinker(object):
             
             
         for ent in get_ents_list(data):
-            if self.debug:
-                print(ent)
+            logger.debug(ent)
             start_ch = int(ent['@offset'])
             end_ch = int(start_ch + len(ent[text_key]))
             ent_kb_id = get_uri(ent)
@@ -146,7 +160,7 @@ class EntityLinker(object):
             if not span:
                 # something strange like "something@bbc.co.uk" where the match is only part of a SpaCy token
                 # 1. find the token to split
-                print(start_ch, end_ch, ent)
+                logger.debug(f'{start_ch}, {end_ch}, {ent}')
                 # tokens also wider than start_ch, end_ch
                 tokens_to_split = [t for t in doc if t.idx >= start_ch or t.idx+len(t) <=end_ch]
                 span = doc.char_span(min(t.idx for t in tokens_to_split), max(t.idx + len(t) for t in tokens_to_split))
@@ -160,11 +174,9 @@ class EntityLinker(object):
         # try to add results to doc.ents
         try:
             doc.ents = list(doc.ents) + ents_data
-            if self.debug:
-                print('the entities are in doc.ents')
+            logger.debug('The entities are in doc.ents')
         except Exception as e:
-            if self.debug:
-                print(e)
+            logger.debug(str(e))
             if self.overwrite_ents:
                 # overwrite ok
                 doc.spans['ents_original'] = doc.ents
@@ -172,12 +184,10 @@ class EntityLinker(object):
                     doc.ents = ents_data
                 except ValueError:  # if there are overlapping spans in the dbpedia_spotlight entities
                     doc.ents = spacy.util.filter_spans(ents_data)
-                if self.debug:
-                    print('doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
+                logger.debug('doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
             else:
                 # don't overwrite
-                if self.debug:
-                    print('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_ents"]')
+                logger.debug('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_ents"]')
         # doc.spans['dbpedia_raw'] = data
         doc.spans[self.span_group] = ents_data
         return doc
