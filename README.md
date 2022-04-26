@@ -80,7 +80,7 @@ Output example:
 [('Google LLC', 'http://dbpedia.org/resource/Google', '0.9999999999999005'), ('American', 'http://dbpedia.org/resource/United_States', '0.9861264878996763')]
 ```
 
-### Configuration parameters
+## Configuration parameters
 
 This component can be used with several parameters, which control the usage of the [DBpedia Spotlight API](https://www.dbpedia-spotlight.org/api) and the behaviour of this bridge library.
 
@@ -115,7 +115,7 @@ print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for 
 
 ```
 
-#### Using DBpedia in a specific language
+### Using DBpedia in a specific language
 
 `language_code` controls the language of DBpedia Spotlight. The API is located at `https://api.dbpedia-spotlight.org/{language_code}`.
 By default the language to be used is derived from the `nlp.meta['lang']`. So if you are using a French pipeline, the default is `fr`.
@@ -132,7 +132,7 @@ nlp = spacy.blank('da')
 nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'en'})
 ```
 
-#### Using another server
+### Using another server
 
 If you don't want to use `api.dbpedia-spotlight.org` as server (for example because you have your local DBPedia Spotlight deployed), you can use the `dbpedia_rest_endpoint` parameter to point to a custom server.
 
@@ -167,7 +167,7 @@ doc = nlp('Google LLC is an American multinational technology company.')
 print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['resource']['@contextualScore']) for ent in doc.ents])
 ```
 
-#### Setting other parameters of the DBpedia REST API
+### Setting other parameters of the DBpedia REST API
 
 As can be seen in the [documentation of the DBpedia REST API](https://www.dbpedia-spotlight.org/api), there are 5 parameters (`confidence`, `support`, `types`, `sparql` and `policy`) which can be used to filter the results. You can use them through the `config` object:
 
@@ -205,7 +205,7 @@ print([(ent.text, ent.kb_id_, ent._.dbpedia_raw_result['@similarityScore']) for 
 
 
 
-#### Controlling where entities are saved and if they are overwritten
+### Controlling where entities are saved and if they are overwritten
 
 This pipeline stage can be loaded on existing language models which already have Entity recognition/linking and can also be loaded on models that don't have it. For this reason you may want to control the behaviour of writing to `doc.ents` and decide where the results of DBpedia Spotlight are saved.
 
@@ -216,7 +216,28 @@ By default, the `doc.ents` are overwritten with the new results. The parameter `
   - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
   - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entities can be found in `doc.spans['dbpedia_spotlight']`
 
-### Using this when training your pipeline
+
+### Set how to behave in case of HTTPError from the API
+
+In case there is a HTTPError from the REST API, you can use the parameter `raise_http_errors` to select which behaviour to have:
+
+- `False`: will ignore the errors (they will be logged and visible on STDOUT).
+- `True`: the exception will be rethrown and will stop your processing. This is the default.
+
+```python
+import spacy
+nlp = spacy.blank('en')
+nlp.add_pipe('dbpedia_spotlight')
+# this time you will get a HTTPError: 400 Client Error
+doc = nlp('')
+
+# now change it to False
+nlp.get_pipe('dbpedia_spotlight').raise_http_errors = False
+# this will generate a warning, but will not break your processing (e.g. in a loop)
+doc = nlp('')
+```
+
+## Using this when training your pipeline
 
 If you are [training a pipeline](https://spacy.io/usage/training#quickstart) and you want to include the component in it, you can add to your `config.cfg`:
 
