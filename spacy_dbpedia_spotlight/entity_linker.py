@@ -63,7 +63,7 @@ class EntityLinker(object):
     def __init__(self, language_code='en', dbpedia_rest_endpoint=None, process='annotate', confidence=None, support=None,
         types=None, sparql=None, policy=None, span_group='dbpedia_spotlight', overwrite_ents=True, debug=False):
         # constructor of the pipeline stage
-        if language_code not in self.supported_languages:
+        if dbpedia_rest_endpoint is None and language_code not in self.supported_languages:
             raise ValueError(f'Linker not available in {language_code}. Choose one of {self.supported_languages}')
         self.language_code = language_code
         if process not in self.supported_processes:
