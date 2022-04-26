@@ -187,7 +187,7 @@ class EntityLinker(object):
                 logger.debug('doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
             else:
                 # don't overwrite
-                logger.debug('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_ents"]')
+                logger.debug('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_spotlight"]')
         # doc.spans['dbpedia_raw'] = data
         doc.spans[self.span_group] = ents_data
         return doc

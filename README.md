@@ -214,7 +214,7 @@ By default, this pipeline stage writes to a dedicated [span group](https://spacy
 By default, the `doc.ents` are overwritten with the new results. The parameter `overwrite_ents` can be used to control how the overwriting of `doc.ents` is performed, because other components may have already written there (e.g., the `en_core_web_lg` model has a `ner` pipeline component which already sets some entities). The component tries to add the new ones from DBpedia, which can be successful if the entities do not overlap in terms of tokens. The cases are the following:
   - no tokens overlap between the pre-exisiting `doc.ents` and the new entities: in this case `doc.ents` will contain both the previous entities and the new entities
   - some tokens overlap and `overwrite_ents=True`: the previous value of `doc.ents` is saved in `doc.spans['ents_original']` and only the dbpedia entities will be saved in `doc.ents`
-  - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entities can be found in `doc.spans['dbpedia_ents']`
+  - some tokens overlap and `overwrite_ents=False`: the previous value of `doc.ents` is left untouched, and the dbpedia entities can be found in `doc.spans['dbpedia_spotlight']`
 
 ### Using this when training your pipeline
 
