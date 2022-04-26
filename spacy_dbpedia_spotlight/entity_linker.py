@@ -139,7 +139,6 @@ class EntityLinker(object):
         ents_data = []
         # fields have different names depending on the process
         text_key = '@name'
-        get_ents_list = lambda json: json.get('annotation', {}).get('surfaceForm', [])
         get_uri = lambda el: None
         # get_offset
         if self.process == 'annotate':
@@ -147,8 +146,14 @@ class EntityLinker(object):
             text_key = '@surfaceForm'
             get_uri = lambda el: el['@URI']
         elif self.process == 'spot':
-            pass
+            get_ents_list = lambda json: json.get('annotation', {}).get('surfaceForm', [])
         elif self.process == 'candidates':
+            def get_ents_list(json):
+                surface_form = json.get('annotation', {}).get('surfaceForm', [])
+                if isinstance(surface_form, dict):
+                    # if only one candidate
+                    surface_form = [surface_form]
+                return surface_form
             get_uri = lambda el: f"http://dbpedia.org/resource/{el['resource']['@uri']}"
             
             
