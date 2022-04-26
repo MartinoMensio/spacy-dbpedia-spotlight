@@ -1,6 +1,5 @@
 -e .
 
-loguru
 twine
 pylint
 pytest
