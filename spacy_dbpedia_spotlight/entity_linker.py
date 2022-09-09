@@ -104,15 +104,15 @@ class EntityLinker(object):
 
 
         params = {'text': doc.text}
-        if self.confidence:
+        if self.confidence != None:
             params['confidence'] = self.confidence
-        if self.support:
+        if self.support != None:
             params['support'] = self.support
-        if self.types:
+        if self.types != None:
             params['types'] = self.types
-        if self.sparql:
+        if self.sparql != None:
             params['sparql'] = self.sparql
-        if self.policy:
+        if self.policy != None:
             params['policy'] = self.policy
 
         # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
