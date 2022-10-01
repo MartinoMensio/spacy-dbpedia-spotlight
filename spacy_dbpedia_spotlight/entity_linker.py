@@ -95,6 +95,14 @@ class EntityLinker(object):
         self.dbpedia_rest_endpoint = dbpedia_rest_endpoint
 
     def process_single_doc_after_call(self, doc: Doc, response) -> Doc:
+        """
+        It processes the response from the DBpedia Spotlight API and adds the entities to the doc.ents.
+        
+        :param doc: The document to process
+        :type doc: Doc
+        :param response: The response from the server
+        :return: The return value is a Doc object.
+        """
         try:
             response.raise_for_status()
         except HTTPError as e:
@@ -191,6 +199,13 @@ class EntityLinker(object):
         return doc
 
     def make_request(self, doc: Doc):
+        """
+        It takes a Doc object as input, and returns a response object from the DBpedia Spotlight API
+        
+        :param doc: the text to be annotated
+        :type doc: Doc
+        :return: The response is a JSON object.
+        """
         if self.dbpedia_rest_endpoint:
             # override the default endpoint, e.g., 'http://localhost:2222/rest'
             endpoint = self.dbpedia_rest_endpoint
@@ -216,7 +231,13 @@ class EntityLinker(object):
             f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
 
     def __call__(self, doc):
-        # called in the pipeline
+        """
+        The function makes a request to the endpoint, and if the request is successful, it returns the
+        document. If the request is unsuccessful, it returns the document without updating it
+        
+        :param doc: the document to be processed
+        :return: The document is being returned.
+        """
 
         # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
         try:
@@ -239,11 +260,12 @@ class EntityLinker(object):
 
     def pipe(self, stream, batch_size=128):
         """
-        It takes a stream of documents, and for each document,
-        it generates a list of sentence triplets,
-        and then sets the annotations for each sentence in the document
-        :param stream: a generator of Doc objects
-        :param batch_size: The number of documents to process at a time, defaults to 128 (optional)
+        It takes a stream of documents, and for each batch of documents, it makes a request to the API
+        for each document in the batch, and then yields the processed results of each document
+        
+        :param stream: the stream of documents to be processed
+        :param batch_size: The number of documents to send to the API in a single request, defaults to
+        128 (optional)
         """
         for docs in util.minibatch(stream, size=batch_size):
             with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
