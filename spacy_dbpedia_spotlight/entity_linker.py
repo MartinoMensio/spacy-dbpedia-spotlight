@@ -235,15 +235,19 @@ class EntityLinker(object):
         except HTTPError as e:
             # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
             logger.warning(
-                f"Bad response from server {self.endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
+                f"""Bad response from server, probably too many requests. Consider using your own endpoint. Document not updated.
+                {e}""")
             logger.debug(str(e))
             if self.raise_http_errors:
                 raise e
             return None
         except Exception as e:  # other erros
             logger.error(
-                f"Endpoint {self.endpoint} unreachable, please check your connection. Document not updated.")
+                f"""Endpoint unreachable, please check your connection. Document not updated.
+                {e}""")
             logger.debug(str(e))
+            if self.raise_http_errors:
+                raise e
             return None
 
         data = response.json()
