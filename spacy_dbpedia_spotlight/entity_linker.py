@@ -1,18 +1,21 @@
+import concurrent.futures
 import sys
 
-import spacy
 import requests
+import spacy
+from multiprocessing.pool import ThreadPool
 from loguru import logger
 from requests import HTTPError
+from spacy import util
 from spacy.language import Language
-
-from spacy.tokens import Span, Doc
+from spacy.tokens import Doc, Span
 
 DBPEDIA_SPOTLIGHT_DEFAULT_ENDPOINT = 'https://api.dbpedia-spotlight.org'
 
 # span extension attribute for raw json
 Span.set_extension("dbpedia_raw_result", default=None)
 Doc.set_extension("dbpedia_raw_result", default=None)
+
 
 @Language.factory('dbpedia_spotlight', default_config={
     'language_code': None,
@@ -71,13 +74,15 @@ class EntityLinker(object):
     supported_processes = ['annotate', 'spot', 'candidates']
 
     def __init__(self, language_code='en', dbpedia_rest_endpoint=None, process='annotate', confidence=None, support=None,
-        types=None, sparql=None, policy=None, span_group='dbpedia_spotlight', overwrite_ents=True, raise_http_errors=True, debug=False):
+                 types=None, sparql=None, policy=None, span_group='dbpedia_spotlight', overwrite_ents=True, raise_http_errors=True, debug=False):
         # constructor of the pipeline stage
         if dbpedia_rest_endpoint is None and language_code not in self.supported_languages:
-            raise ValueError(f'Linker not available in {language_code}. Choose one of {self.supported_languages}')
+            raise ValueError(
+                f'Linker not available in {language_code}. Choose one of {self.supported_languages}')
         self.language_code = language_code
         if process not in self.supported_processes:
-            raise ValueError(f'The process {process} is not supported. Choose one of {self.supported_processes}')
+            raise ValueError(
+                f'The process {process} is not supported. Choose one of {self.supported_processes}')
         self.process = process
         self.confidence = confidence
         self.support = support
@@ -90,9 +95,104 @@ class EntityLinker(object):
         self.debug = debug
         self.dbpedia_rest_endpoint = dbpedia_rest_endpoint
 
+    def process_single_doc_after_call(self, doc: Doc, data) -> Doc:
+        """
+        Adds the entities from the response data to the doc.ents.
+        
+        :param doc: The document to process
+        :type doc: Doc
+        :param data: The JSON data from the server
+        :return: The return value is a Doc object.
+        """
 
-    def __call__(self, doc):
-        # called in the pipeline
+        if not data:
+            logger.log('DEBUG', 'No data returned from DBpedia Spotlight')
+            return doc
+        
+        doc._.dbpedia_raw_result = data
+
+        ents_data = []
+        # fields have different names depending on the process
+        text_key = '@name'
+        def get_uri(el): return None
+        # get_offset
+        if self.process == 'annotate':
+            def get_ents_list(json): return json.get('Resources', [])
+            text_key = '@surfaceForm'
+            def get_uri(el): return el['@URI']
+        elif self.process == 'spot':
+            def get_ents_list(json): return json.get(
+                'annotation', {}).get('surfaceForm', [])
+        elif self.process == 'candidates':
+            def get_ents_list(json):
+                surface_form = json.get(
+                    'annotation', {}).get('surfaceForm', [])
+                if isinstance(surface_form, dict):
+                    # if only one candidate
+                    surface_form = [surface_form]
+                return surface_form
+
+            def get_uri(
+                el): return f"http://dbpedia.org/resource/{el['resource']['@uri']}"
+
+        for ent in get_ents_list(data):
+            logger.debug(ent)
+            start_ch = int(ent['@offset'])
+            end_ch = int(start_ch + len(ent[text_key]))
+            ent_kb_id = get_uri(ent)
+            # TODO look at '@types' and choose most relevant?
+            if ent_kb_id:
+                span = doc.char_span(
+                    start_ch, end_ch, 'DBPEDIA_ENT', ent_kb_id)
+            else:
+                span = doc.char_span(start_ch, end_ch, 'DBPEDIA_ENT')
+            if not span:
+                # something strange like "something@bbc.co.uk" where the match is only part of a SpaCy token
+                # 1. find the token to split
+                logger.debug(f'{start_ch}, {end_ch}, {ent}')
+                # tokens also wider than start_ch, end_ch
+                tokens_to_split = [t for t in doc if t.idx >=
+                                   start_ch or t.idx+len(t) <= end_ch]
+                span = doc.char_span(min(t.idx for t in tokens_to_split), max(
+                    t.idx + len(t) for t in tokens_to_split))
+                # with doc.retokenize() as retokenizer:
+                #     for t in tokens_to_split:
+                #         retokenizer.split(t, ['a', 't'], [t.head, t.head])
+                # raise ValueError()
+            span._.dbpedia_raw_result = ent
+            ents_data.append(span)
+
+        # try to add results to doc.ents
+        try:
+            doc.ents = list(doc.ents) + ents_data
+            logger.debug('The entities are in doc.ents')
+        except Exception as e:
+            logger.debug(str(e))
+            if self.overwrite_ents:
+                # overwrite ok
+                doc.spans['ents_original'] = doc.ents
+                try:
+                    doc.ents = ents_data
+                except ValueError:  # if there are overlapping spans in the dbpedia_spotlight entities
+                    doc.ents = spacy.util.filter_spans(ents_data)
+                logger.debug(
+                    'doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
+            else:
+                # don't overwrite
+                logger.debug(
+                    'doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_spotlight"]')
+        # doc.spans['dbpedia_raw'] = data
+        doc.spans[self.span_group] = ents_data
+        return doc
+
+    def make_request(self, doc: Doc):
+        """
+        It takes a Doc object as input, and returns a response object from the DBpedia Spotlight API
+        
+        :param doc: the text to be annotated
+        :type doc: Doc
+        :return: The response as a requests.Response instance.
+        """
         if self.dbpedia_rest_endpoint:
             # override the default endpoint, e.g., 'http://localhost:2222/rest'
             endpoint = self.dbpedia_rest_endpoint
@@ -101,7 +201,6 @@ class EntityLinker(object):
             # use the default endpoint for the language selected
             endpoint = f'{self.base_url}/{self.language_code}'
             logger.debug(f'api_endpoint has been built as {endpoint}')
-
 
         params = {'text': doc.text}
         if self.confidence != None:
@@ -116,93 +215,70 @@ class EntityLinker(object):
             params['policy'] = self.policy
 
         # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
+        return requests.post(
+            f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
+
+    def get_remote_response(self, doc: Doc):
+        """
+        Wraps a remote call to the DBpedia Spotlight API, handles the possible errors and returns the JSON response:
+        - calls make_request to perform the actual request
+        - hecks the response object and acts accordingly to the status code and the decided behaviour (self.raise_http_errors)
+        - returns the JSON response
+        
+        :param doc: the document to be annotated
+        :type doc: Doc
+        :return: the JSON response or None in case of error and self.raise_http_errors is False
+        """
         try:
-            response = requests.post(f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
+            response = self.make_request(doc)
             response.raise_for_status()
         except HTTPError as e:
             # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
-            logger.warning(f"Bad response from server {endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
+            logger.warning(
+                f"Bad response from server {self.endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
             logger.debug(str(e))
             if self.raise_http_errors:
                 raise e
-            return doc
-        except Exception as e: # other erros
-            logger.error(f"Endpoint {endpoint} unreachable, please check your connection. Document not updated.")
+            return None
+        except Exception as e:  # other erros
+            logger.error(
+                f"Endpoint {self.endpoint} unreachable, please check your connection. Document not updated.")
             logger.debug(str(e))
-            return doc
+            return None
 
         data = response.json()
         logger.debug(f'Received data: {data}')
+        return data
 
-        doc._.dbpedia_raw_result = data
-
-        ents_data = []
-        # fields have different names depending on the process
-        text_key = '@name'
-        get_uri = lambda el: None
-        # get_offset
-        if self.process == 'annotate':
-            get_ents_list = lambda json: json.get('Resources', [])
-            text_key = '@surfaceForm'
-            get_uri = lambda el: el['@URI']
-        elif self.process == 'spot':
-            get_ents_list = lambda json: json.get('annotation', {}).get('surfaceForm', [])
-        elif self.process == 'candidates':
-            def get_ents_list(json):
-                surface_form = json.get('annotation', {}).get('surfaceForm', [])
-                if isinstance(surface_form, dict):
-                    # if only one candidate
-                    surface_form = [surface_form]
-                return surface_form
-            get_uri = lambda el: f"http://dbpedia.org/resource/{el['resource']['@uri']}"
-            
-            
-        for ent in get_ents_list(data):
-            logger.debug(ent)
-            start_ch = int(ent['@offset'])
-            end_ch = int(start_ch + len(ent[text_key]))
-            ent_kb_id = get_uri(ent)
-            # TODO look at '@types' and choose most relevant?
-            if ent_kb_id:
-                span = doc.char_span(start_ch, end_ch, 'DBPEDIA_ENT', ent_kb_id)
-            else:
-                span = doc.char_span(start_ch, end_ch, 'DBPEDIA_ENT')
-            if not span:
-                # something strange like "something@bbc.co.uk" where the match is only part of a SpaCy token
-                # 1. find the token to split
-                logger.debug(f'{start_ch}, {end_ch}, {ent}')
-                # tokens also wider than start_ch, end_ch
-                tokens_to_split = [t for t in doc if t.idx >= start_ch or t.idx+len(t) <=end_ch]
-                span = doc.char_span(min(t.idx for t in tokens_to_split), max(t.idx + len(t) for t in tokens_to_split))
-                # with doc.retokenize() as retokenizer:
-                #     for t in tokens_to_split:
-                #         retokenizer.split(t, ['a', 't'], [t.head, t.head])
-                # raise ValueError()
-            span._.dbpedia_raw_result = ent
-            ents_data.append(span)
+    def __call__(self, doc):
+        """
+        The function makes a request to the endpoint, and if the request is successful, it returns the
+        document. If the request is unsuccessful, it returns the document without updating it
         
-        # try to add results to doc.ents
-        try:
-            doc.ents = list(doc.ents) + ents_data
-            logger.debug('The entities are in doc.ents')
-        except Exception as e:
-            logger.debug(str(e))
-            if self.overwrite_ents:
-                # overwrite ok
-                doc.spans['ents_original'] = doc.ents
-                try:
-                    doc.ents = ents_data
-                except ValueError:  # if there are overlapping spans in the dbpedia_spotlight entities
-                    doc.ents = spacy.util.filter_spans(ents_data)
-                logger.debug('doc.ents has been overwritten. The original entities are in doc.spans["ents_original"]')
-            else:
-                # don't overwrite
-                logger.debug('doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_spotlight"]')
-        # doc.spans['dbpedia_raw'] = data
-        doc.spans[self.span_group] = ents_data
+        :param doc: the document to be processed
+        :return: The document is being returned.
+        """
+
+        data = self.get_remote_response(doc)
+        self.process_single_doc_after_call(doc, data)
         return doc
 
-
+    def pipe(self, stream, batch_size=128):
+        """
+        It takes a stream of documents, and for each batch of documents, it makes a request to the API
+        for each document in the batch, and then yields the processed results of each document
+        
+        :param stream: the stream of documents to be processed
+        :param batch_size: The number of documents to send to the API in a single request, defaults to
+        128 (optional)
+        """
+        for docs in util.minibatch(stream, size=batch_size):
+            with ThreadPool(batch_size) as pool:
+                print('batch_size', batch_size)
+                # using pool.imap to preserve order and avoid blocking
+                for data, doc in zip(pool.imap(self.get_remote_response, docs), docs):
+                    self.process_single_doc_after_call(doc, data)
+                    yield doc
 
 
 def create(language_code, nlp=None):
@@ -214,4 +290,3 @@ def create(language_code, nlp=None):
         nlp = spacy.blank(language_code)
     nlp.add_pipe('dbpedia_spotlight')
     return nlp
-
