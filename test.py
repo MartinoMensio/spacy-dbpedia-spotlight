@@ -1,4 +1,5 @@
 import spacy
+import numpy as np
 import spacy_dbpedia_spotlight
 
 short_text = 'Google LLC is an American multinational technology company.'
@@ -140,11 +141,40 @@ def test_spot():
 def test_candidates():
     do_with_process('candidates')
 
+def test_concurrent_small():
+    nlp = spacy.blank('en')
+    nlp.add_pipe('dbpedia_spotlight', config={'debug': True})
+    docs = list(nlp.pipe([long_text, short_text]))
+    assert docs[0].ents, 'document without entities'
+    assert docs[1].ents, 'document without entities'
+    assert docs[0].text == long_text
+    assert len(docs[0].ents) > len(docs[1].ents)
+
+
+def test_concurrent_big():
+    nlp = spacy.blank('en')
+    nlp.add_pipe('dbpedia_spotlight')
+    texts = [long_text] * 50 + [short_text] * 50
+    docs = list(nlp.pipe(texts, batch_size=128))
+    # check the order
+    assert docs[0].ents, 'document without entities'
+    assert docs[1].ents, 'document without entities'
+    assert docs[0].text == long_text
+    ents_counts = np.array([len(doc.ents) for doc in docs])
+    print(ents_counts)
+    assert ents_counts[:50].min() == ents_counts[:50].max()
+    assert ents_counts[50:].min() == ents_counts[50:].max()
+    assert ents_counts[0] == ents_counts[:50].mean()
+    assert ents_counts[50] == ents_counts[50:].mean()
+    assert ents_counts[0]> ents_counts[50]
+
 
 def main():
     test_annotate()
     test_spot()
     test_candidates()
+    test_concurrent_small()
+    test_concurrent_big()
 
 
 if __name__ == '__main__':
