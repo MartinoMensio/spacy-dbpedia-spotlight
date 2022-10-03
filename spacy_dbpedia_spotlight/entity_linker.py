@@ -3,6 +3,7 @@ import sys
 
 import requests
 import spacy
+from multiprocessing.pool import ThreadPool
 from loguru import logger
 from requests import HTTPError
 from spacy import util
@@ -272,11 +273,12 @@ class EntityLinker(object):
         128 (optional)
         """
         for docs in util.minibatch(stream, size=batch_size):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-                future_to_url = {executor.submit(
-                    self.get_remote_response, doc): doc for doc in docs}
-                for doc, future in zip(docs, concurrent.futures.as_completed(future_to_url)):
-                    yield self.process_single_doc_after_call(doc, future.result())
+            with ThreadPool(batch_size) as pool:
+                print('batch_size', batch_size)
+                # using pool.imap to preserve order and avoid blocking
+                for data, doc in zip(pool.imap(self.get_remote_response, docs), docs):
+                    self.process_single_doc_after_call(doc, data)
+                    yield doc
 
 
 def create(language_code, nlp=None):
