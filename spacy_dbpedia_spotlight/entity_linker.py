@@ -94,34 +94,20 @@ class EntityLinker(object):
         self.debug = debug
         self.dbpedia_rest_endpoint = dbpedia_rest_endpoint
 
-    def process_single_doc_after_call(self, doc: Doc, response) -> Doc:
+    def process_single_doc_after_call(self, doc: Doc, data) -> Doc:
         """
-        It processes the response from the DBpedia Spotlight API and adds the entities to the doc.ents.
+        Adds the entities from the response data to the doc.ents.
         
         :param doc: The document to process
         :type doc: Doc
-        :param response: The response from the server
+        :param data: The JSON data from the server
         :return: The return value is a Doc object.
         """
-        try:
-            response.raise_for_status()
-        except HTTPError as e:
-            # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
-            logger.warning(
-                f"Bad response from server {endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
-            logger.debug(str(e))
-            if self.raise_http_errors:
-                raise e
-            return doc
-        except Exception as e:  # other erros
-            logger.error(
-                f"Endpoint {endpoint} unreachable, please check your connection. Document not updated.")
-            logger.debug(str(e))
-            return doc
 
-        data = response.json()
-        logger.debug(f'Received data: {data}')
-
+        if not data:
+            logger.log('DEBUG', 'No data returned from DBpedia Spotlight')
+            return doc
+        
         doc._.dbpedia_raw_result = data
 
         ents_data = []
@@ -204,7 +190,7 @@ class EntityLinker(object):
         
         :param doc: the text to be annotated
         :type doc: Doc
-        :return: The response is a JSON object.
+        :return: The response as a requests.Response instance.
         """
         if self.dbpedia_rest_endpoint:
             # override the default endpoint, e.g., 'http://localhost:2222/rest'
@@ -227,8 +213,41 @@ class EntityLinker(object):
         if self.policy != None:
             params['policy'] = self.policy
 
+        # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
         return requests.post(
             f'{endpoint}/{self.process}', headers={'accept': 'application/json'}, data=params)
+
+    def get_remote_response(self, doc: Doc):
+        """
+        Wraps a remote call to the DBpedia Spotlight API, handles the possible errors and returns the JSON response:
+        - calls make_request to perform the actual request
+        - hecks the response object and acts accordingly to the status code and the decided behaviour (self.raise_http_errors)
+        - returns the JSON response
+        
+        :param doc: the document to be annotated
+        :type doc: Doc
+        :return: the JSON response or None in case of error and self.raise_http_errors is False
+        """
+        try:
+            response = self.make_request(doc)
+            response.raise_for_status()
+        except HTTPError as e:
+            # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
+            logger.warning(
+                f"Bad response from server {self.endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
+            logger.debug(str(e))
+            if self.raise_http_errors:
+                raise e
+            return None
+        except Exception as e:  # other erros
+            logger.error(
+                f"Endpoint {self.endpoint} unreachable, please check your connection. Document not updated.")
+            logger.debug(str(e))
+            return None
+
+        data = response.json()
+        logger.debug(f'Received data: {data}')
+        return data
 
     def __call__(self, doc):
         """
@@ -239,24 +258,9 @@ class EntityLinker(object):
         :return: The document is being returned.
         """
 
-        # TODO: application/ld+json would be more detailed? https://github.com/digitalbazaar/pyld
-        try:
-            response = self.make_request(doc)
-        except HTTPError as e:
-            # due to too many requests to the endpoint - this happens sometimes with the default public endpoint
-            logger.warning(
-                f"Bad response from server {endpoint}, probably too many requests. Consider using your own endpoint. Document not updated.")
-            logger.debug(str(e))
-            if self.raise_http_errors:
-                raise e
-            return doc
-        except Exception as e:  # other erros
-            logger.error(
-                f"Endpoint {endpoint} unreachable, please check your connection. Document not updated.")
-            logger.debug(str(e))
-            return doc
-
-        return self.process_single_doc_after_call(doc, response)
+        data = self.get_remote_response(doc)
+        self.process_single_doc_after_call(doc, data)
+        return doc
 
     def pipe(self, stream, batch_size=128):
         """
@@ -270,7 +274,7 @@ class EntityLinker(object):
         for docs in util.minibatch(stream, size=batch_size):
             with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
                 future_to_url = {executor.submit(
-                    self.make_request, doc): doc for doc in docs}
+                    self.get_remote_response, doc): doc for doc in docs}
                 for doc, future in zip(docs, concurrent.futures.as_completed(future_to_url)):
                     yield self.process_single_doc_after_call(doc, future.result())
 
