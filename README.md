@@ -348,6 +348,8 @@ nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://local
 
 ```bash
 pip install -r requirements.txt
+# test
+pytest test.py
 # build the archive
 python setup.py sdist
 # upload to pypi
