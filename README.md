@@ -351,5 +351,5 @@ pip install -r requirements.txt
 # build the archive
 python setup.py sdist
 # upload to pypi
-twine upload dist/spacy_dbpedia_spotlight-0.2.4.tar.gz
+twine upload dist/spacy_dbpedia_spotlight-0.2.5.tar.gz
 ```
