@@ -69,7 +69,7 @@ class EntityLinker(object):
     # default location of the service
     base_url = DBPEDIA_SPOTLIGHT_DEFAULT_ENDPOINT
     # list of supported languages
-    supported_languages = ['en', 'de', 'es', 'fr', 'it', 'nl', 'pt', 'ru']
+    supported_languages = ['ca', 'da', 'nl', 'en', 'fi', 'fr', 'de', 'hu', 'it', 'pt', 'ro', 'ru', 'es', 'sv', 'tr']
     # list of supported processes
     supported_processes = ['annotate', 'spot', 'candidates']
 
@@ -181,7 +181,7 @@ class EntityLinker(object):
                 # don't overwrite
                 logger.debug(
                     'doc.ents not overwritten. You can find the dbpedia ents in doc.spans["dbpedia_spotlight"]')
-        # doc.spans['dbpedia_raw'] = data
+        # doc.spans['dbpedia_raw_result'] = data
         doc.spans[self.span_group] = ents_data
         return doc
 

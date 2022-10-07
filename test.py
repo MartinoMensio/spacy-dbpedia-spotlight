@@ -168,6 +168,48 @@ def test_concurrent_big():
     assert ents_counts[50] == ents_counts[50:].mean()
     assert ents_counts[0]> ents_counts[50]
 
+def test_languages():
+    text_by_lang = {
+        # look at README.md for the list of supported languages
+        'ca': 'Durant la Guerra dels Segadors, té lloc a Lleida la batalla de les Forques on tropes franceses amb el suport de regiments catalans derroten els terços de Castella.',
+        # zh --> Proxy Error 502
+        # hr --> Not Found 404
+        'da': 'Den 1. januar 2016 blev det besluttet, at der skulle være en ny nationalpark i Danmark, og at den skulle ligge i det nordlige Jylland. Den nye nationalpark skulle hedde Vadehavet Nationalpark.',
+        'nl': 'De Nederlandse voetbalclub FC Twente is opgericht in 1965. De club speelt in de Eredivisie en heeft als thuisbasis het stadion De Grolsch Veste.',
+        'en': 'The United States presidential election of 2020 was the 59th quadrennial presidential election, held on Tuesday, November 3, 2020. The Democratic ticket of former Vice President Joe Biden and Senator Kamala Harris defeated the incumbent Republican President Donald Trump and Vice President Mike Pence, who were seeking a second term.',
+        'fi': 'Suomen presidentinvaalit 2020 pidettiin 28. marraskuuta 2020. Vaalit olivat Suomen 12. presidentinvaalit. Vaalien voitti presidentti Sauli Niinistö, joka sai 62,2 prosenttia äänistä.',
+        'fr': 'Le 1er janvier 2016, le gouvernement français a annoncé la création d’une nouvelle réserve naturelle nationale dans le nord du Jutland, au Danemark. Cette réserve naturelle, qui porte le nom de Vadehavet Nationalpark, est la première réserve naturelle nationale danoise.',
+        'de': 'Die deutsche Fußballnationalmannschaft ist die Auswahlmannschaft des Deutschen Fußball-Bundes und der höchste Spielmannschaftsverband im deutschen Fußball. Sie repräsentiert Deutschland in internationalen Fußballwettbewerben und ist damit die deutsche Fußballnationalmannschaft.',
+        # el --> Not Found 404
+        'hu': 'A magyar választások 2020. november 8-án, vasárnap kerültek megrendezésre. A választásokon a Fidesz-KDNP együttműködésében létrejött Választási Szövetség jelöltjei nyertek a parlamenti választásokon, és a Fidesz-KDNP együttműködésében létrejött kormányt alakították meg.',
+        'it': 'La nazionale italiana di calcio, nota anche come Squadra Azzurra, è la rappresentativa calcistica dell’Italia e rappresenta il paese nelle competizioni ufficiali internazionali. La Federazione Italiana Giuoco Calcio (FIGC) è l’ente che governa il calcio italiano e si occupa della nazionale.',
+        # ja --> Proxy Error 502
+        # pip install sudachipy sudachidict-core
+        # ko --> Not Found 404
+        # lt --> Proxy Error 502
+        # mk --> Not Found 404
+        # nb --> Not Found 404
+        # pl --> Not Found 404
+        'pt': 'A seleção brasileira de futebol, também conhecida como seleção canarinho, é a seleção nacional de futebol da República Federativa do Brasil. É organizada pela Confederação Brasileira de Futebol (CBF), entidade máxima do futebol brasileiro.',
+        'ro': 'Echipa națională de fotbal a României este echipa națională de fotbal a României și este organizată de Federația Română de Fotbal. Echipa națională a României este una dintre cele mai bune echipe naționale din Europa.',
+        'ru': 'Российская футбольная сборная — сборная Российской Федерации по футболу, которая представляет Россию на международных футбольных турнирах. Российская футбольная сборная является одной из самых успешных сборных в мире.',
+        'es': 'La selección de fútbol de España, también conocida como La Roja, es la selección de fútbol de España. Es organizada por la Real Federación Española de Fútbol (RFEF), la cual es miembro de la UEFA y de la FIFA.',
+        'sv': 'Den svenska fotbollslandslaget är det svenska herrlandslaget i fotboll. Det är den nationella fotbollsförbundet Sveriges fotbollförbund som är ansvarig för fotbollslaget.',
+        'tr': "Sarayönü Camii, Lefkoşa'nın kuzey kesiminde yer alan bir camidir",
+        # uk --> Not Found 404
+    }
+    for lang, text in text_by_lang.items():
+        nlp = spacy.blank(lang)
+        nlp.add_pipe('dbpedia_spotlight')
+        doc = nlp(text)
+        assert(doc.ents)
+        # test one entity
+        ent = doc.ents[0]
+        if lang == 'en':
+            assert f'dbpedia.org' in ent._.dbpedia_raw_result['@URI'], f'@URI {ent._.dbpedia_raw_result["@URI"]} does not match with dbpedia.org'
+        else:
+            assert f'{lang}.dbpedia.org' in ent._.dbpedia_raw_result['@URI'], f'@URI {ent._.dbpedia_raw_result["@URI"]} does not contain language code {lang}'
+
 
 def main():
     test_annotate()

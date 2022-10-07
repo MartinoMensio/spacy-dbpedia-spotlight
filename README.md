@@ -122,13 +122,44 @@ By default the language to be used is derived from the `nlp.meta['lang']`. So if
 
 When you pass a value in the configuration, this will override the default value. If you are using a pipeline in a language not supported by DBPedia Spotlight, you will be required to set this configuration option.
 
+To support a language, it needs to be supported both by spaCy and by DBpedia-spotlight. This table shows the two requirements and the final result:
+
+| language | code | spaCy supported |DBpedia spotlight supported| supported |
+|--- | :-: | :-: | :-: | :-: |
+| Catalan | `ca` | ✅ | ✅ | ✅ |
+| Chinese | `zh`| ✅ | ❌ | ❌ |
+| Croatian | `hr`| ✅ | ❌ | ❌ |
+| Danish | `da`| ✅ | ✅ | ✅ |
+| Dutch | `nl`| ✅ | ✅ | ✅ |
+| English | `en`| ✅ | ✅ | ✅ |
+| Finnish | `fi`| ✅ | ✅ | ✅ |
+| French | `fr`| ✅ | ✅ | ✅ |
+| German | `de`| ✅ | ✅ | ✅ |
+| Greek | `el`| ✅ | ❌ | ❌ |
+| Hungarian | `hu`| ✅ | ✅ | ✅ |
+| Italian | `it`| ✅ | ✅ | ✅ |
+| Japanese | `ja`| ✅ | ❌ | ❌ |
+| Korean | `ko`| ✅ | ❌ | ❌ |
+| Lithuanian | `lt`| ✅ | ❌ | ❌ |
+| Macedonian | `mk`| ✅ | ❌ | ❌ |
+| Norwegian Bokmål | `nb`| ✅ | ❌ | ❌ |
+| Polish | `pl`| ✅ | ❌ | ❌ |
+| Portuguese | `pt`| ✅ | ✅ | ✅ |
+| Romanian | `ro`| ✅ | ✅ | ✅ |
+| Russian | `ru`| ✅ | ✅ | ✅ |
+| Spanish | `es`| ✅ | ✅ | ✅ |
+| Swedish | `sv`| ✅ | ✅ | ✅ |
+| Turkish | `tr`| ✅ | ✅ | ✅ |
+| Ukrainian | `uk`| ✅ | ❌ | ❌ |
+| Multi-language | `xx`| ✅ | ❌ | ❌ |
+
 Example:
 
 ```python
 import spacy
-# Danish not supported by spotlight
-nlp = spacy.blank('da')
-# so let's try to use the English one
+# Greek not supported by spotlight
+nlp = spacy.blank('el')
+# so let's try to use the English endpoint on the greek language
 nlp.add_pipe('dbpedia_spotlight', config={'language_code': 'en'})
 ```
 
