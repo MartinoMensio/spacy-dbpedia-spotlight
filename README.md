@@ -122,9 +122,11 @@ By default the language to be used is derived from the `nlp.meta['lang']`. So if
 
 When you pass a value in the configuration, this will override the default value. If you are using a pipeline in a language not supported by DBPedia Spotlight, you will be required to set this configuration option.
 
-To support a language, it needs to be supported both by spaCy and by DBpedia-spotlight. This table shows the two requirements and the final result:
+To support a language, it needs to be supported both by spaCy and by DBpedia-spotlight. While for spaCy there is only one column (supported / not supported), for DBpedia there are two columns:
+- DBpedia REST endpoint available (remote API): if there the REST endpoint is available directly from dbpedia-spotlight (https://api.dbpedia-spotlight.org/{LANGUAGE}/). You don't need a local deployment of the API, but keep in mind that if you do too many request it would be better to deploy the model locally
+- DBpedia model available (local deployment): the API model can be downloaded and executed locally (https://databus.dbpedia.org/dbpedia/spotlight/spotlight-model/). See below in the "Deploying a local model" section
 
-| language | code | spaCy supported |DBpedia spotlight supported| supported |
+| language | code | spaCy supported | DBpedia REST endpointavailable (remote API) | DBpedia model available (local API) |
 |--- | :-: | :-: | :-: | :-: |
 | Catalan | `ca` | ✅ | ✅ | ✅ |
 | Chinese | `zh`| ✅ | ❌ | ❌ |
@@ -140,9 +142,9 @@ To support a language, it needs to be supported both by spaCy and by DBpedia-spo
 | Italian | `it`| ✅ | ✅ | ✅ |
 | Japanese | `ja`| ✅ | ❌ | ❌ |
 | Korean | `ko`| ✅ | ❌ | ❌ |
-| Lithuanian | `lt`| ✅ | ❌ | ❌ |
+| Lithuanian | `lt`| ✅ | ❌ | ✅ |
 | Macedonian | `mk`| ✅ | ❌ | ❌ |
-| Norwegian Bokmål | `nb`| ✅ | ❌ | ❌ |
+| Norwegian Bokmål | `nb`| ✅ | ❌ | ✅ (`no`) |
 | Polish | `pl`| ✅ | ❌ | ❌ |
 | Portuguese | `pt`| ✅ | ✅ | ✅ |
 | Romanian | `ro`| ✅ | ✅ | ✅ |
@@ -175,6 +177,69 @@ Example:
 ```python
 import spacy
 nlp = spacy.blank('en')
+# Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
+nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
+```
+
+### Deploying a local model
+
+Especially if you need to use dbpedia-spotlight intensively, you may need to deploy a local copy. There are several advantages:
+- faster response time
+- more languages available (`lt` and `no`)
+- less overload for the public API. Yes it's publicly shared but bombarding it with thousands of requests is not very polite
+
+You can choose to deploy a local model with Docker or without it.
+
+The full and updated list of models is available here: https://databus.dbpedia.org/dbpedia/spotlight/spotlight-model/
+
+#### Deploy with Docker
+
+If you already have some knowledge about Docker, this is the easier and fastest option.
+
+```bash
+# pull the official image
+docker pull dbpedia/dbpedia-spotlight
+# create a volume for persistently saving the language models
+docker volume create spotlight-models
+# start the container (here assuming we want the en model, but any other supported language code can be used)
+docker run -ti \
+ --restart unless-stopped \
+ --name dbpedia-spotlight.en \
+ --mount source=spotlight-models,target=/opt/spotlight \
+ -p 2222:80 \
+ dbpedia/dbpedia-spotlight \
+ spotlight.sh en
+```
+
+#### Withouth Docker
+
+```bash
+# download main jar
+wget https://repo1.maven.org/maven2/org/dbpedia/spotlight/rest/1.1/rest-1.1-jar-with-dependencies.jar
+# download latest model (last checked on 10/10/2022) (assuming en model)
+wget -O en.tar.gz http://downloads.dbpedia.org/repo/dbpedia/spotlight/spotlight-model/2022.03.01/spotlight-model_lang=en.tar.gz
+# extract model
+tar xzf en.tar.gz
+# run server
+java -Xmx8G -jar rest-1.1-jar-with-dependencies.jar en http://localhost:2222/rest
+```
+
+#### Use the local server
+
+First of all, make sure that the local server is working.
+
+```bash
+curl http://localhost:2222/rest/annotate \
+ --data-urlencode "text=President Obama called Wednesday on Congress to extend a tax break for students included in last year's economic stimulus package, arguing that the policy provides more generous assistance." \
+ --data "confidence=0.35" \
+ -H "Accept: text/turtle"
+```
+
+Then in Python you can configure the endpoint in the following way
+
+```python
+import spacy
+nlp = spacy.load('en_core_web_lg')
 # Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
 nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
 ```
@@ -292,57 +357,7 @@ debug = false
 
 After a few requests to DBpedia spotlight, the public web service will reply with some bad HTTP codes.
 
-The solution is to use a local DBpedia instance. The instructions below are with Docker or without it.
-
-#### Deploy with Docker
-
-```bash
-# pull the official image
-docker pull dbpedia/dbpedia-spotlight
-# create a volume for persistently saving the language models
-docker volume create spotlight-models
-# start the container (here assuming we want the en model)
-docker run -ti \
- --restart unless-stopped \
- --name dbpedia-spotlight.en \
- --mount source=spotlight-models,target=/opt/spotlight \
- -p 2222:80 \
- dbpedia/dbpedia-spotlight \
- spotlight.sh en
-```
-
-#### Withouth Docker
-
-```bash
-# download main jar
-wget https://sourceforge.net/projects/dbpedia-spotlight/files/spotlight/dbpedia-spotlight-1.0.0.jar
-# download latest model (assuming en model)
-wget -O en.tar.gz http://downloads.dbpedia.org/repo/dbpedia/spotlight/spotlight-model/2020.11.18/spotlight-model_lang%3den.tar.gz
-# extract model
-tar xzf en.tar.gz
-# run server
-java -jar dbpedia-spotlight-1.0.0.jar en http://localhost:2222/rest
-```
-
-#### Use the local server
-
-First of all, make sure that the local server is working.
-
-```bash
-curl http://localhost:2222/rest/annotate \
- --data-urlencode "text=President Obama called Wednesday on Congress to extend a tax break for students included in last year's economic stimulus package, arguing that the policy provides more generous assistance." \
- --data "confidence=0.35" \
- -H "Accept: text/turtle"
-```
-
-Then in Python you can configure the endpoint in the following way
-
-```python
-import spacy
-nlp = spacy.load('en_core_web_lg')
-# Use your endpoint: don't put any trailing slashes, and don't include the /annotate path
-nlp.add_pipe('dbpedia_spotlight', config={'dbpedia_rest_endpoint': 'http://localhost:2222/rest'})
-```
+The solution is to use a local DBpedia instance. See above for the "Local
 
 ## Utils
 
