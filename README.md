@@ -16,7 +16,9 @@ The spans produced have the following properties:
 
 ## Installation
 
-This package works with SpaCy v3
+This package works with:
+- python 3.7/3.8/3.9/3.10/3.11
+- spaCy>=3.0.0,<4.0.0, last tested on version 3.5
 
 With pip: `pip install spacy-dbpedia-spotlight`
 

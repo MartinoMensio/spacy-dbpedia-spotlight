@@ -4,3 +4,4 @@ twine
 pylint
 pytest
 autopep8
+pytest
