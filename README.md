@@ -396,5 +396,5 @@ pytest test.py
 # build the archive
 python setup.py sdist
 # upload to pypi
-twine upload dist/spacy_dbpedia_spotlight-0.2.5.tar.gz
+twine upload dist/spacy_dbpedia_spotlight-0.2.6.tar.gz
 ```
