@@ -335,6 +335,32 @@ nlp.get_pipe('dbpedia_spotlight').raise_http_errors = False
 doc = nlp('')
 ```
 
+## Ignore SSL verification
+
+In case you need to disable SSL verification (e.g. you are getting `SSLCertVerificationError` and you are certain that you know what you are doing), you can use the parameter `verify_ssl` to do it:
+
+- `True`: HTTPS requests are verified with SSL verification. This is the default.
+- `False`: HTTPS requests will trigger a certificate verification. Use carefully.
+
+```python
+import spacy
+nlp = spacy.blank('en')
+# during the pipeline instantiation (e.g. custom dbpedia_rest_endpoint with HTTPS but self-signed certificate)
+nlp.add_pipe('dbpedia_spotlight', config={'verify_ssl': False})
+# or afterwards
+nlp.get_pipe('dbpedia_spotlight').verify_ssl = False
+# this will generate a warning, but will not break your processing (e.g. in a loop)
+doc = nlp('Google LLC is an American multinational technology company.')
+print(doc.ents)
+
+# you can suppress warnings with this
+import requests
+from urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+# and now no warnings
+doc = nlp('Google LLC is an American multinational technology company.')
+print(doc.ents)
+```
 ## Using this when training your pipeline
 
 If you are [training a pipeline](https://spacy.io/usage/training#quickstart) and you want to include the component in it, you can add to your `config.cfg`:
