@@ -392,7 +392,7 @@ The solution is to use a local DBpedia instance. See above for the "Local
 ```bash
 pip install -r requirements.txt
 # test
-pytest test.py
+pytest
 # build the archive
 python setup.py sdist
 # upload to pypi
