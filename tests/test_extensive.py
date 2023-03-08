@@ -1,6 +1,5 @@
 import spacy
 import numpy as np
-import spacy_dbpedia_spotlight
 
 short_text = 'Google LLC is an American multinational technology company.'
 strange_text = 'Today I emailed something@bbc.co.uk and they didn\'t reply yet! I will contact Boris Johnson'
@@ -80,7 +79,7 @@ Later on Thursday, Mr Abbott also tweeted that he had been working with public s
 
 def do_with_process(process_name):
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight', config={'process': process_name, 'debug':True})
+    nlp.add_pipe('dbpedia_spotlight', config={'process': process_name, 'debug':True, 'verify_ssl':False})
     doc = nlp(short_text)
     assert(doc.ents)
     if process_name != 'spot':
@@ -90,7 +89,7 @@ def do_with_process(process_name):
 
 def get_blank():
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight')
+    nlp.add_pipe('dbpedia_spotlight', config={'verify_ssl':False})
     return nlp
 
 
@@ -103,7 +102,7 @@ def test_blank():
 
 def test_large_text():
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight')
+    nlp.add_pipe('dbpedia_spotlight', config={'verify_ssl':False})
     doc = nlp(long_text)
     assert(doc.ents)
     for ent in doc.ents:
@@ -126,7 +125,7 @@ def test_large():
 
 def test_spangroup():
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight', config={'span_group': 'test_span_group'})
+    nlp.add_pipe('dbpedia_spotlight', config={'span_group': 'test_span_group', 'verify_ssl':False})
     doc = nlp(short_text)
     assert(doc.ents)
     for span in doc.spans['test_span_group']:
@@ -143,7 +142,7 @@ def test_candidates():
 
 def test_concurrent_small():
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight', config={'debug': True})
+    nlp.add_pipe('dbpedia_spotlight', config={'debug': True, 'verify_ssl':False})
     docs = list(nlp.pipe([long_text, short_text]))
     assert docs[0].ents, 'document without entities'
     assert docs[1].ents, 'document without entities'
@@ -153,7 +152,7 @@ def test_concurrent_small():
 
 def test_concurrent_big():
     nlp = spacy.blank('en')
-    nlp.add_pipe('dbpedia_spotlight')
+    nlp.add_pipe('dbpedia_spotlight', config={'verify_ssl':False})
     texts = [long_text] * 50 + [short_text] * 50
     docs = list(nlp.pipe(texts, batch_size=128))
     # check the order
@@ -200,7 +199,7 @@ def test_languages():
     }
     for lang, text in text_by_lang.items():
         nlp = spacy.blank(lang)
-        nlp.add_pipe('dbpedia_spotlight')
+        nlp.add_pipe('dbpedia_spotlight', config={'verify_ssl':False})
         doc = nlp(text)
         assert(doc.ents)
         # test one entity
@@ -210,15 +209,3 @@ def test_languages():
         else:
             assert f'{lang}.dbpedia.org' in ent._.dbpedia_raw_result['@URI'], f'@URI {ent._.dbpedia_raw_result["@URI"]} does not contain language code {lang}'
 
-
-def main():
-    test_annotate()
-    test_spot()
-    test_candidates()
-    test_concurrent_small()
-    test_concurrent_big()
-
-
-if __name__ == '__main__':
-    # to see output
-    main()
