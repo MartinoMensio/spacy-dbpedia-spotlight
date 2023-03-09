@@ -1,4 +1,10 @@
+[![Tests](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/actions/workflows/tests.yml/badge.svg)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/actions/workflows/tests.yml)
+[![Downloads](https://static.pepy.tech/badge/spacy-dbpedia-spotlight)](https://pepy.tech/project/spacy-dbpedia-spotlight)
+[![Current Release Version](https://img.shields.io/github/release/MartinoMensio/spacy-dbpedia-spotlight.svg?style=flat-square&logo=github)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/releases)
+[![pypi Version](https://img.shields.io/pypi/v/spacy-dbpedia-spotlight.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/spacy-dbpedia-spotlight/)
+
 # Spacy DBpedia Spotlight
+
 
 This package acts as a Entity Recogniser and Linker using [DBpedia Spotlight](https://www.dbpedia-spotlight.org/), annotating SpaCy's Spans and adding them to the entities annotations.
 
