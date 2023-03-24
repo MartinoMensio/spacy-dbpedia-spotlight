@@ -22,9 +22,11 @@ jobs:
       uses: py-actions/py-dependency-install@v4
     - name: Run pytest
       run: coverage run -m pytest
+    - name: generate coverage report
+      run: coverage xml # creates coverage.xml
       shell: bash
     - name: Coveralls Parallel
-      uses: coverallsapp/github-action@v1
+      uses: coverallsapp/github-action@v2
       with:
         flag-name: run-${{ join(matrix.*, '-') }}
         parallel: true
@@ -35,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Coveralls Finished
-      uses: coverallsapp/github-action@v1
+      uses: coverallsapp/github-action@v2
       with:
         parallel-finished: true
         carryforward: "run-3.7,run-3.8,run-3.9,run-3.10,run-3.11"
