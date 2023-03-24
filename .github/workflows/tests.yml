@@ -25,11 +25,11 @@ jobs:
     - name: generate coverage report
       run: coverage xml # creates coverage.xml
     - name: Upload coverage data to coveralls.io
-        run: coveralls --service=github
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COVERALLS_FLAG_NAME: ${{ python-version }}
-          COVERALLS_PARALLEL: true
+      run: coveralls --service=github
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        COVERALLS_FLAG_NAME: ${{ python-version }}
+        COVERALLS_PARALLEL: true
 
   coveralls:
     name: Indicate completion to coveralls.io
