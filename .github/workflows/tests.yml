@@ -24,20 +24,22 @@ jobs:
       run: coverage run -m pytest
     - name: generate coverage report
       run: coverage xml # creates coverage.xml
-      shell: bash
-    - name: Coveralls Parallel
-      uses: coverallsapp/github-action@v2
-      with:
-        flag-name: run-${{ join(matrix.*, '-') }}
-        parallel: true
+    - name: Upload coverage data to coveralls.io
+        run: coveralls --service=github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_FLAG_NAME: ${{ python-version }}
+          COVERALLS_PARALLEL: true
 
-  finish:
+  coveralls:
+    name: Indicate completion to coveralls.io
     needs: test
-    if: ${{ always() }}
     runs-on: ubuntu-latest
+    container: python:3-slim
     steps:
-    - name: Coveralls Finished
-      uses: coverallsapp/github-action@v2
-      with:
-        parallel-finished: true
-        carryforward: "run-3.7,run-3.8,run-3.9,run-3.10,run-3.11"
+    - name: Finished
+      run: |
+        pip3 install --upgrade coveralls
+        coveralls --service=github --finish
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
