@@ -1,8 +1,9 @@
 [![Tests](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/actions/workflows/tests.yml/badge.svg)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/actions/workflows/tests.yml)
 [![Downloads](https://static.pepy.tech/badge/spacy-dbpedia-spotlight)](https://pepy.tech/project/spacy-dbpedia-spotlight)
-[![Current Release Version](https://img.shields.io/github/release/MartinoMensio/spacy-dbpedia-spotlight.svg?style=flat-square&logo=github)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/releases)
-[![pypi Version](https://img.shields.io/pypi/v/spacy-dbpedia-spotlight.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/spacy-dbpedia-spotlight/)
+[![Current Release Version](https://img.shields.io/github/release/MartinoMensio/spacy-dbpedia-spotlight.svg?logo=github)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/releases)
+[![pypi Version](https://img.shields.io/pypi/v/spacy-dbpedia-spotlight.svg?logo=pypi&logoColor=white)](https://pypi.org/project/spacy-dbpedia-spotlight/)
 [![Coverage Status](https://coveralls.io/repos/github/MartinoMensio/spacy-dbpedia-spotlight/badge.svg)](https://coveralls.io/github/MartinoMensio/spacy-dbpedia-spotlight)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Spacy DBpedia Spotlight
 
