@@ -1,8 +1,7 @@
+# dev dependencies
 -e .
 
 twine
-pylint
-pytest
-autopep8
 pytest
 coveralls
+black

@@ -71,7 +71,8 @@ class EntityLinker(object):
     # default location of the service
     base_url = DBPEDIA_SPOTLIGHT_DEFAULT_ENDPOINT
     # list of supported languages
-    supported_languages = ['ca', 'da', 'nl', 'en', 'fi', 'fr', 'de', 'hu', 'it', 'pt', 'ro', 'ru', 'es', 'sv', 'tr']
+    supported_languages = ['ca', 'da', 'nl', 'en', 'fi', 'fr',
+                           'de', 'hu', 'it', 'pt', 'ro', 'ru', 'es', 'sv', 'tr']
     # list of supported processes
     supported_processes = ['annotate', 'spot', 'candidates']
 
@@ -101,7 +102,7 @@ class EntityLinker(object):
     def process_single_doc_after_call(self, doc: Doc, data) -> Doc:
         """
         Adds the entities from the response data to the doc.ents.
-        
+
         :param doc: The document to process
         :type doc: Doc
         :param data: The JSON data from the server
@@ -111,7 +112,7 @@ class EntityLinker(object):
         if not data:
             logger.log('DEBUG', 'No data returned from DBpedia Spotlight')
             return doc
-        
+
         doc._.dbpedia_raw_result = data
 
         ents_data = []
@@ -191,7 +192,7 @@ class EntityLinker(object):
     def make_request(self, doc: Doc):
         """
         It takes a Doc object as input, and returns a response object from the DBpedia Spotlight API
-        
+
         :param doc: the text to be annotated
         :type doc: Doc
         :return: The response as a requests.Response instance.
@@ -227,7 +228,7 @@ class EntityLinker(object):
         - calls make_request to perform the actual request
         - hecks the response object and acts accordingly to the status code and the decided behaviour (self.raise_http_errors)
         - returns the JSON response
-        
+
         :param doc: the document to be annotated
         :type doc: Doc
         :return: the JSON response or None in case of error and self.raise_http_errors is False
@@ -261,7 +262,7 @@ class EntityLinker(object):
         """
         The function makes a request to the endpoint, and if the request is successful, it returns the
         document. If the request is unsuccessful, it returns the document without updating it
-        
+
         :param doc: the document to be processed
         :return: The document is being returned.
         """
@@ -274,7 +275,7 @@ class EntityLinker(object):
         """
         It takes a stream of documents, and for each batch of documents, it makes a request to the API
         for each document in the batch, and then yields the processed results of each document
-        
+
         :param stream: the stream of documents to be processed
         :param batch_size: The number of documents to send to the API in a single request, defaults to
         128 (optional)
