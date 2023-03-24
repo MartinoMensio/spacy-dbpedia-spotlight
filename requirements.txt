@@ -5,3 +5,4 @@ pylint
 pytest
 autopep8
 pytest
+coverage
