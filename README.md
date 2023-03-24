@@ -2,6 +2,7 @@
 [![Downloads](https://static.pepy.tech/badge/spacy-dbpedia-spotlight)](https://pepy.tech/project/spacy-dbpedia-spotlight)
 [![Current Release Version](https://img.shields.io/github/release/MartinoMensio/spacy-dbpedia-spotlight.svg?style=flat-square&logo=github)](https://github.com/MartinoMensio/spacy-dbpedia-spotlight/releases)
 [![pypi Version](https://img.shields.io/pypi/v/spacy-dbpedia-spotlight.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.org/project/spacy-dbpedia-spotlight/)
+[![Coverage Status](https://coveralls.io/repos/github/MartinoMensio/spacy-dbpedia-spotlight/badge.svg)](https://coveralls.io/github/MartinoMensio/spacy-dbpedia-spotlight)
 
 # Spacy DBpedia Spotlight
 
@@ -398,7 +399,8 @@ The solution is to use a local DBpedia instance. See above for the "Local
 ```bash
 pip install -r requirements.txt
 # test
-pytest
+coverage run --source=spacy_dbpedia_spotlight -m pytest
+coverage xml
 # build the archive
 python setup.py sdist
 # upload to pypi
